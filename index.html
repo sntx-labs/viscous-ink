@@ -2,17 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Viscous Ink</title>
 <style>
   html,body{margin:0;height:100%;background:#F1E9D6;overflow:hidden;}
   canvas{display:block;width:100vw;height:100vh;touch-action:none;cursor:crosshair;}
 </style>
-<!-- screenhouse-sh-panel:start -->
-  <link rel="stylesheet" href="./sh-panel.css">
-  <script src="./sh-panel.js"></script>
-  <script src="./sh-panel-bootstrap.js"></script>
-<!-- screenhouse-sh-panel:end -->
+<link rel="stylesheet" href="./paint-controls.css">
 </head>
 <body>
 <script type="importmap">
@@ -106,6 +102,7 @@ function run(mat, target) { quad.material = mat; renderer.setRenderTarget(target
 const texelSim = new THREE.Vector2(1 / simW, 1 / simH);
 const texelDye = new THREE.Vector2(1 / dyeW, 1 / dyeH);
 const defaults = Object.freeze({
+  paperHex:"#ffffff", inkAHex:"#132057", inkBHex:"#39c4cf",
   paperTone: 0.06,
   inkAHue: 12,
   inkASat: 0.05,
@@ -397,9 +394,8 @@ function smoothstep(edge0, edge1, x){
   return t * t * (3 - 2 * t);
 }
 function applyParams(){
-  paperColor.copy(paperCream).lerp(paperIndigo, params.paperTone);
-  inkAColor.copy(hslToRgbVec(params.inkAHue, params.inkASat, 0.085));
-  inkBColor.copy(hslToRgbVec(params.inkBHue, params.inkBSat, 0.482));
+  const rgb=(target,hex)=>{const number=parseInt(hex.slice(1),16);target.set((number>>16&255)/255,(number>>8&255)/255,(number&255)/255);};
+  rgb(paperColor,params.paperHex);rgb(inkAColor,params.inkAHex);rgb(inkBColor,params.inkBHex);
   displayP.uniforms.uSheen.value = params.sheen;
   displayP.uniforms.uBloomThreshold.value = params.bloomThreshold;
   displayP.uniforms.uFiberStrength.value = params.fiberStrength;
@@ -438,6 +434,45 @@ window.LOOP_PARAMS = {
   clear(){ clearSimulation(false); },
   reseed(){ clearSimulation(true); },
 };
+let paused=false;
+const controls=document.createElement('div');
+controls.className='paint-ui';
+controls.innerHTML='<a class="paint-home" href="/">← Labs</a><details class="paint-controls"><summary>Paint controls</summary><div class="paint-content"><p>Drag to paint. Let the ink drift.</p><div class="paint-palettes" aria-label="Color palettes"></div><div class="paint-colors"><label>Paper<input type="color" data-color="paperHex"></label><label>Ink one<input type="color" data-color="inkAHex"></label><label>Ink two<input type="color" data-color="inkBHex"></label></div><label class="paint-range">Brush size<input type="range" min=".25" max="3" step=".05" data-param="brushSize"></label><label class="paint-range">Ink flow<input type="range" min=".1" max="3" step=".05" data-param="pigmentLoad"></label><details class="paint-advanced"><summary>Fine tune</summary><div class="paint-fine"></div></details><div class="paint-actions"><button type="button" data-action="pause">Pause</button><button type="button" data-action="clear">Clear</button><button type="button" data-action="reset">Reset</button></div></div></details>';
+document.body.append(controls);
+const palettes=[
+  {name:'Glacier',colors:['#ffffff','#132057','#39c4cf']},
+  {name:'Vermilion',colors:['#f1e9d6','#171514','#ea4020']},
+  {name:'Moss',colors:['#e9e9d8','#18352d','#8cac6b']},
+  {name:'Carbon',colors:['#f5f4f0','#161616','#7d7d79']},
+];
+function syncControls(){
+  controls.querySelectorAll('[data-color]').forEach(input=>input.value=params[input.dataset.color]);
+  controls.querySelectorAll('[data-param]').forEach(input=>input.value=params[input.dataset.param]);
+  controls.querySelectorAll('[data-palette]').forEach(button=>{
+    const palette=palettes[Number(button.dataset.palette)];
+    button.setAttribute('aria-pressed',String(palette.colors.every((color,index)=>color===params[['paperHex','inkAHex','inkBHex'][index]])));
+  });
+}
+palettes.forEach((palette,index)=>{
+  const button=document.createElement('button');button.type='button';button.className='palette';button.dataset.palette=index;button.title=palette.name;button.setAttribute('aria-label',palette.name+' palette');
+  palette.colors.forEach(color=>{const swatch=document.createElement('span');swatch.style.background=color;button.append(swatch);});
+  button.onclick=()=>{[params.paperHex,params.inkAHex,params.inkBHex]=palette.colors;applyParams();syncControls();};
+  controls.querySelector('.paint-palettes').append(button);
+});
+for(const [key,label,min,max,step] of [['vorticity','Curl',0,12,.05],['strokeForce','Stroke force',.1,3,.05],['bloomStrength','Glow',0,1.5,.01],['fiberStrength','Paper texture',0,2,.01]]){
+  const labelEl=document.createElement('label');labelEl.className='paint-range';labelEl.textContent=label;
+  const input=document.createElement('input');input.type='range';input.min=min;input.max=max;input.step=step;input.dataset.param=key;
+  labelEl.append(input);controls.querySelector('.paint-fine').append(labelEl);
+}
+controls.addEventListener('input',event=>{
+  const input=event.target;if(input.dataset.color){params[input.dataset.color]=input.value;applyParams();syncControls();}
+  if(input.dataset.param){params[input.dataset.param]=Number(input.value);applyParams();}
+});
+controls.querySelector('[data-action="pause"]').onclick=event=>{paused=!paused;event.currentTarget.textContent=paused?'Resume':'Pause';event.currentTarget.setAttribute('aria-pressed',String(paused));};
+controls.querySelector('[data-action="clear"]').onclick=()=>clearSimulation(false);
+controls.querySelector('[data-action="reset"]').onclick=()=>{Object.assign(params,defaults);applyParams();clearSimulation(true);syncControls();};
+document.addEventListener('keydown',event=>{if(event.key==='Escape')controls.querySelector('details').open=false;});
+syncControls();
 const pointers = new Map();
 function newPointer(){ return { x:0, y:0, px:0, py:0, dist:0, down:false, moved:false }; }
 function setPos(p, cx, cy){
@@ -611,7 +646,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 
 function frame(now){
   last = now;
-  step(0.015); // fixed timestep keeps the sim stable across framerates
+  if (!paused) step(0.015); // fixed timestep keeps the sim stable across framerates
 
   displayP.uniforms.uDye.value = dye.read.texture;
   run(displayP, sceneRT);

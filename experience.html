@@ -11,8 +11,8 @@
   canvas{display:block;width:100vw;height:100vh;touch-action:none;cursor:crosshair;}
 </style>
 <link rel="stylesheet" href="./paint-controls.css">
-</head>
-<body>
+<link rel="stylesheet" href="/ui/sh-panel/sh-panel.css"><link rel="stylesheet" href="/ui/labs-panels.css"><script src="/ui/sh-panel/sh-panel.js"></script><script src="/ui/labs-panels.js"></script></head>
+<body><main id="ink-shell"><section id="ink-stage"></section><aside id="ink-controls" aria-label="Viscous Ink controls"></aside></main>
 <script type="importmap">
 { "imports": { "three": "/vendor/three-0.169.0/build/three.module.js" } }
 </script>
@@ -29,7 +29,7 @@ import * as THREE from 'three';
 
 const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: false });
 renderer.setClearColor(0x000000, 1);
-document.body.appendChild(renderer.domElement);
+const inkStage=document.getElementById('ink-stage');inkStage.appendChild(renderer.domElement);
 
 // float support (half-float is enough and broadly available)
 const gl = renderer.getContext();
@@ -58,7 +58,7 @@ function makeDouble(w, h, filter) {
 // resolutions scale with viewport; dye is higher-res than the sim
 let SIM = 256, DYE = 512, PRESSURE_ITER = 30;
 function pickRes() {
-  const small = Math.min(window.innerWidth, window.innerHeight) < 700 || matchMedia('(pointer: coarse)').matches;
+  const small = Math.min(inkStage.clientWidth, inkStage.clientHeight) < 700 || matchMedia('(pointer: coarse)').matches;
   SIM = small ? 128 : 256;
   DYE = small ? 256 : 512;
   PRESSURE_ITER = small ? 20 : 30;
@@ -68,7 +68,7 @@ pickRes();
 let simW, simH, dyeW, dyeH, renderW, renderH, bloomW, bloomH;
 let velocity, dye, divergence, curl, pressure, sceneRT, bloomA, bloomB;
 function allocate() {
-  const ar = window.innerWidth / window.innerHeight;
+  const ar = inkStage.clientWidth / inkStage.clientHeight;
   simW = ar >= 1 ? Math.round(SIM * ar) : SIM;
   simH = ar >= 1 ? SIM : Math.round(SIM / ar);
   dyeW = ar >= 1 ? Math.round(DYE * ar) : DYE;
@@ -79,9 +79,9 @@ function allocate() {
   curl = makeRT(simW, simH, THREE.NearestFilter);
   pressure = makeDouble(simW, simH, THREE.NearestFilter);
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  renderW = Math.max(1, Math.floor(window.innerWidth * dpr));
-  renderH = Math.max(1, Math.floor(window.innerHeight * dpr));
-  const small = Math.min(window.innerWidth, window.innerHeight) < 640;
+  renderW = Math.max(1, Math.floor(inkStage.clientWidth * dpr));
+  renderH = Math.max(1, Math.floor(inkStage.clientHeight * dpr));
+  const small = Math.min(inkStage.clientWidth, inkStage.clientHeight) < 640;
   const div = small ? 4 : 2;
   bloomW = Math.max(1, Math.floor(renderW / div));
   bloomH = Math.max(1, Math.floor(renderH / div));
@@ -437,44 +437,22 @@ window.LOOP_PARAMS = {
   reseed(){ clearSimulation(true); },
 };
 let paused=false;
-const controls=document.createElement('div');
-controls.className='paint-ui';
-controls.innerHTML='<details class="paint-controls"><summary>Paint controls</summary><div class="paint-content"><p>Drag to paint. Let the ink drift.</p><div class="paint-palettes" aria-label="Color palettes"></div><div class="paint-colors"><label>Paper<input type="color" data-color="paperHex"></label><label>Ink one<input type="color" data-color="inkAHex"></label><label>Ink two<input type="color" data-color="inkBHex"></label></div><label class="paint-range">Brush size<input type="range" min=".25" max="3" step=".05" data-param="brushSize"></label><label class="paint-range">Ink flow<input type="range" min=".1" max="3" step=".05" data-param="pigmentLoad"></label><details class="paint-advanced"><summary>Fine tune</summary><div class="paint-fine"></div></details><div class="paint-actions"><button type="button" data-action="pause">Pause</button><button type="button" data-action="clear">Clear</button><button type="button" data-action="reset">Reset</button></div></div></details>';
-document.body.append(controls);
-const palettes=[
-  {name:'Glacier',colors:['#ffffff','#132057','#39c4cf']},
-  {name:'Vermilion',colors:['#f1e9d6','#171514','#ea4020']},
-  {name:'Moss',colors:['#e9e9d8','#18352d','#8cac6b']},
-  {name:'Carbon',colors:['#f5f4f0','#161616','#7d7d79']},
-];
-function syncControls(){
-  controls.querySelectorAll('[data-color]').forEach(input=>input.value=params[input.dataset.color]);
-  controls.querySelectorAll('[data-param]').forEach(input=>input.value=params[input.dataset.param]);
-  controls.querySelectorAll('[data-palette]').forEach(button=>{
-    const palette=palettes[Number(button.dataset.palette)];
-    button.setAttribute('aria-pressed',String(palette.colors.every((color,index)=>color===params[['paperHex','inkAHex','inkBHex'][index]])));
-  });
+const panel=window.LabsPanels.adapt(new SHPanel(document.getElementById('ink-controls')));
+const bindings=[];const palettes={Glacier:['#ffffff','#132057','#39c4cf'],Vermilion:['#f1e9d6','#171514','#ea4020'],Moss:['#e9e9d8','#18352d','#8cac6b'],Carbon:['#f5f4f0','#161616','#7d7d79']};
+const colors=panel.folder('Paper + ink');
+for(const [name,values] of Object.entries(palettes))colors.button(name,()=>{[params.paperHex,params.inkAHex,params.inkBHex]=values;applyParams();syncControls()});
+for(const [key,label] of [['paperHex','Paper'],['inkAHex','Ink one'],['inkBHex','Ink two']])bindings.push([key,colors.color(params,key,{label}).on('change',applyParams)]);
+const folders=new Map();
+for(const item of window.LOOP_PARAMS.schema){
+ if(['paperTone','inkAHue','inkASat','inkBHue','inkBSat'].includes(item.key))continue;
+ if(!folders.has(item.folder))folders.set(item.folder,panel.folder(item.folder,{expanded:item.folder==='Brush'}));
+ bindings.push([item.key,folders.get(item.folder).slider(params,item.key,item).on('change',applyParams)]);
 }
-palettes.forEach((palette,index)=>{
-  const button=document.createElement('button');button.type='button';button.className='palette';button.dataset.palette=index;button.title=palette.name;button.setAttribute('aria-label',palette.name+' palette');
-  palette.colors.forEach(color=>{const swatch=document.createElement('span');swatch.style.background=color;button.append(swatch);});
-  button.onclick=()=>{[params.paperHex,params.inkAHex,params.inkBHex]=palette.colors;applyParams();syncControls();};
-  controls.querySelector('.paint-palettes').append(button);
-});
-for(const [key,label,min,max,step] of [['vorticity','Curl',0,12,.05],['strokeForce','Stroke force',.1,3,.05],['bloomStrength','Glow',0,1.5,.01],['fiberStrength','Paper texture',0,2,.01]]){
-  const labelEl=document.createElement('label');labelEl.className='paint-range';labelEl.textContent=label;
-  const input=document.createElement('input');input.type='range';input.min=min;input.max=max;input.step=step;input.dataset.param=key;
-  labelEl.append(input);controls.querySelector('.paint-fine').append(labelEl);
-}
-controls.addEventListener('input',event=>{
-  const input=event.target;if(input.dataset.color){params[input.dataset.color]=input.value;applyParams();syncControls();}
-  if(input.dataset.param){params[input.dataset.param]=Number(input.value);applyParams();}
-});
-controls.querySelector('[data-action="pause"]').onclick=event=>{paused=!paused;event.currentTarget.textContent=paused?'Resume':'Pause';event.currentTarget.setAttribute('aria-pressed',String(paused));};
-controls.querySelector('[data-action="clear"]').onclick=()=>clearSimulation(false);
-controls.querySelector('[data-action="reset"]').onclick=()=>{Object.assign(params,defaults);applyParams();clearSimulation(true);syncControls();};
-document.addEventListener('keydown',event=>{if(event.key==='Escape')controls.querySelector('details').open=false;});
-syncControls();
+function syncControls(){bindings.forEach(([key,c])=>c.setValue(params[key]))}
+const actions=panel.folder('Session');const session={paused:false};actions.toggle(session,'paused',{label:'Pause'}).on('change',e=>paused=e.value);
+actions.button('Clear',()=>clearSimulation(false));actions.button('Reseed',()=>clearSimulation(true));
+actions.button('Reset all',()=>{Object.assign(params,defaults);session.paused=paused=false;panel.refresh();applyParams();clearSimulation(true);syncControls()});
+actions.button('Copy JSON',()=>LabsPanels.copy('2026-07-14-viscous-ink',{...params,paused},actions));
 const pointers = new Map();
 function newPointer(){ return { x:0, y:0, px:0, py:0, dist:0, down:false, moved:false }; }
 function setPos(p, cx, cy){
@@ -499,7 +477,7 @@ canvas.addEventListener('pointercancel', endPointer);
 canvas.addEventListener('pointerleave', endPointer);
 
 function splat(px, py, dx, dy, mixA, mixB, radius, amount){
-  const aspect = window.innerWidth / window.innerHeight;
+  const aspect = inkStage.clientWidth / inkStage.clientHeight;
   splatVelP.uniforms.uTarget.value = velocity.read.texture;
   splatVelP.uniforms.uPoint.value.set(px, py);
   splatVelP.uniforms.uForce.value.set(dx, dy);
@@ -523,13 +501,13 @@ function updateTexels(){
 
 function step(dt){
   updateTexels();
-  const aspect = window.innerWidth / window.innerHeight;
+  const aspect = inkStage.clientWidth / inkStage.clientHeight;
 
   // inject from pointers
   for (const p of pointers.values()){
     if (!p.down) continue;
     let dx = (p.x - p.px), dy = (p.y - p.py);
-    const speed = Math.hypot(dx * window.innerWidth, dy * window.innerHeight);
+    const speed = Math.hypot(dx * inkStage.clientWidth, dy * inkStage.clientHeight);
     p.dist += speed;
     const forceScale = 6.0 * params.strokeForce;
     const fx = dx * forceScale * 260.0;
@@ -598,14 +576,14 @@ function step(dt){
 function resize(){
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   renderer.setPixelRatio(dpr);
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(inkStage.clientWidth, inkStage.clientHeight);
   pickRes();
   allocate();
   clearSimulation(true);
-  displayP.uniforms.uRes.value.set(window.innerWidth * dpr, window.innerHeight * dpr);
+  displayP.uniforms.uRes.value.set(inkStage.clientWidth * dpr, inkStage.clientHeight * dpr);
   blurP.uniforms.uDir.value.set(1 / bloomW, 0);
 }
-window.addEventListener('resize', resize);
+new ResizeObserver(resize).observe(inkStage);
 
 // Preserve the strongest behavior from the earlier tunable iteration: the
 // first read is already a living marbled field, while Clear and Reseed remain
@@ -642,9 +620,9 @@ seedOpening();
 
 // -------- loop --------
 let last = performance.now();
-displayP.uniforms.uRes.value.set(window.innerWidth * Math.min(window.devicePixelRatio||1,2), window.innerHeight * Math.min(window.devicePixelRatio||1,2));
+displayP.uniforms.uRes.value.set(inkStage.clientWidth * Math.min(window.devicePixelRatio||1,2), inkStage.clientHeight * Math.min(window.devicePixelRatio||1,2));
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(inkStage.clientWidth, inkStage.clientHeight);
 
 function frame(now){
   last = now;

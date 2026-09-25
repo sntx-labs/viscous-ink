@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Viscous Ink</title>
 <style>
-  html,body{margin:0;height:100%;background:#F1E9D6;overflow:hidden;}
+  html,body{margin:0;height:100%;background:#ffffff;overflow:hidden;}
   canvas{display:block;width:100vw;height:100vh;touch-action:none;cursor:crosshair;}
 </style>
 <link rel="stylesheet" href="./paint-controls.css">
@@ -432,7 +432,7 @@ window.LOOP_PARAMS = {
   ],
   get(key){ return params[key]; },
   set(key, value){ if (key in params) { params[key] = Number(value); applyParams(); } },
-  reset(){ Object.assign(params, defaults); applyParams(); clearSimulation(true); },
+  reset(){ Object.assign(params, defaults); applyParams(); clearSimulation(false); },
   clear(){ clearSimulation(false); },
   reseed(){ clearSimulation(true); },
 };
@@ -451,7 +451,7 @@ for(const item of window.LOOP_PARAMS.schema){
 function syncControls(){bindings.forEach(([key,c])=>c.setValue(params[key]))}
 const actions=panel.folder('Session');const session={paused:false};actions.toggle(session,'paused',{label:'Pause'}).on('change',e=>paused=e.value);
 actions.button('Clear',()=>clearSimulation(false));actions.button('Reseed',()=>clearSimulation(true));
-actions.button('Reset all',()=>{Object.assign(params,defaults);session.paused=paused=false;panel.refresh();applyParams();clearSimulation(true);syncControls()});
+actions.button('Reset all',()=>{Object.assign(params,defaults);session.paused=paused=false;panel.refresh();applyParams();clearSimulation(false);syncControls()});
 actions.button('Copy JSON',()=>LabsPanels.copy('2026-07-14-viscous-ink',{...params,paused},actions));
 const pointers = new Map();
 function newPointer(){ return { x:0, y:0, px:0, py:0, dist:0, down:false, moved:false }; }
@@ -579,15 +579,13 @@ function resize(){
   renderer.setSize(inkStage.clientWidth, inkStage.clientHeight);
   pickRes();
   allocate();
-  clearSimulation(true);
+  clearSimulation(false);
   displayP.uniforms.uRes.value.set(inkStage.clientWidth * dpr, inkStage.clientHeight * dpr);
   blurP.uniforms.uDir.value.set(1 / bloomW, 0);
 }
 new ResizeObserver(resize).observe(inkStage);
 
-// Preserve the strongest behavior from the earlier tunable iteration: the
-// first read is already a living marbled field, while Clear and Reseed remain
-// available from the canonical SHPanel action folder.
+// Ink is added only by drawing or the explicit Reseed action.
 function seedOpening(){
   const cx = 0.5, cy = 0.52;
   for (let i = 0; i < 30; i++) {
@@ -616,7 +614,7 @@ function clearSimulation(reseed = false){
   if (reseed) seedOpening();
 }
 
-seedOpening();
+clearSimulation(false);
 
 // -------- loop --------
 let last = performance.now();

@@ -267,7 +267,7 @@
     "github": "https://github.com/taylorallenux/engine-lab"
   },
   "2026-07-14-viscous-ink": {
-    "title": "Viscous Ink",
+    "title": "Liquid Painting",
     "description": "Paint with flowing pigment, textured paper, and fluid motion."
   },
   "asterion-cockpit": {

@@ -1,4 +1,4 @@
-# Viscous Ink
+# Liquid Painting
 
 Syntax Labs experiment. This repository is private while being prepared for release.
 

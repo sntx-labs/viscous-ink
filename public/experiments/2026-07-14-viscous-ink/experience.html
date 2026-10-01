@@ -5,14 +5,14 @@
 <script src="/ui/experience-loading.js"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Viscous Ink</title>
+<title>Liquid Painting</title>
 <style>
   html,body{margin:0;height:100%;background:#ffffff;overflow:hidden;}
   canvas{display:block;width:100vw;height:100vh;touch-action:none;cursor:crosshair;}
 </style>
 <link rel="stylesheet" href="./paint-controls.css">
 <link rel="stylesheet" href="/ui/sh-panel/sh-panel.css"><link rel="stylesheet" href="/ui/labs-panels.css"><script src="/ui/sh-panel/sh-panel.js"></script><script src="/ui/labs-panels.js"></script><link rel="stylesheet" href="/ui/project-cards.css"></head>
-<body><main id="ink-shell"><section id="ink-stage"></section><aside id="ink-controls" aria-label="Viscous Ink controls"></aside></main>
+<body><main id="ink-shell"><section id="ink-stage"></section><aside id="ink-controls" aria-label="Liquid Painting controls"></aside></main>
 <script type="importmap">
 { "imports": { "three": "/vendor/three-0.169.0/build/three.module.js" } }
 </script>
@@ -20,7 +20,7 @@
 import * as THREE from 'three';
 
 /* ---------------------------------------------------------------
-   Viscous Ink — suminagashi stable-fluids
+   Liquid Painting — suminagashi stable-fluids
    Two inks (vermilion + carbon) are injected as Beer-Lambert
    absorbance onto cream paper. A GPU ping-pong fluid solver
    advects both velocity and pigment; strokes fold the inks into
@@ -110,20 +110,20 @@ const defaults = Object.freeze({
   inkASat: 0.05,
   inkBHue: 8,
   inkBSat: 0.9,
-  fiberStrength: 1.0,
-  inkAbsorption: 2.6,
+  fiberStrength: 0.44,
+  inkAbsorption: 3.6,
   bloomStrength: 0.55,
   bloomThreshold: 0.62,
   bloomSpread: 1.0,
   sheen: 0.7,
   vignetteStrength: 1.0,
   dissipation: 0.9971,
-  velocityDissipation: 0.9777,
+  velocityDissipation: 0.97,
   vorticity: 3.15,
-  pressureIterations: 30,
-  brushSize: 1.0,
-  pigmentLoad: 1.0,
-  strokeForce: 0.03,
+  pressureIterations: 17,
+  brushSize: 1.2,
+  pigmentLoad: 0.7,
+  strokeForce: 0.02,
 });
 const params = { ...defaults };
 const paperCream = new THREE.Vector3(0xF1/255, 0xE9/255, 0xD6/255);

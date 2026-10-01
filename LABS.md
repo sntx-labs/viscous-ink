@@ -1,6 +1,6 @@
-# Viscous Ink
+# Liquid Painting
 
-Private working repository for [Viscous Ink](https://labs.sntx.co/experiments/2026-07-14-viscous-ink/). Imported from Syntax Labs version 50, commit `0dcf1d1533de3115e87fee5fb2df4a329e6032d2`, on 2026-09-26.
+Private working repository for [Liquid Painting](https://labs.sntx.co/experiments/2026-07-14-viscous-ink/). Updated from Syntax Labs version 51, commit `b6877e0280a16b90e0e29e56af1baf9808801e8e`, on 2026-10-01.
 
 ## Run the current Labs version
 

@@ -1,6 +1,6 @@
 # Liquid Painting
 
-Syntax Labs experiment. This repository is private while being prepared for release.
+Syntax Labs experiment. Public source repository for the linked live experience.
 
 [Live experience](https://labs.sntx.co/experiments/2026-07-14-viscous-ink/) · [Run and edit this project](LABS.md)
 
